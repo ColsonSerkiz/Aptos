@@ -1,0 +1,127 @@
+Установка може тривати від 10-30 хвилин
+
+Встановлюємо docker якщо він не встановлений
+sudo apt update
+sudo apt install ca-certificates curl gnupg lsb-release wget jq sed -y
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io -y
+Перевіряємо
+
+docker version
+
+## Если в терминале не будет ошибки то все ок
+Client: Docker Engine - Communityю...
+Встановлюємо docker compose, якщо він не встановлений
+mkdir -p ~/.docker/cli-plugins/
+curl -SL https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+sudo chown $USER /var/run/docker.sock
+Перевіряємо
+
+docker compose version
+
+## Если в терминале не будет ошибки то все ок
+Docker Compose version v2.2.3
+Створюємо папку aptos в яку завантажуємо config файли
+mkdir $HOME/aptos
+cd $HOME/aptos
+wget https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/public_full_node/docker-compose.yaml
+wget https://raw.githubusercontent.com/aptos-labs/aptos-core/main/docker/compose/public_full_node/public_full_node.yaml
+wget https://devnet.aptoslabs.com/genesis.blob
+wget https://devnet.aptoslabs.com/waypoint.txt
+Створюємо папку identity де зберігатимемо унікальний ID ноди
+mkdir $HOME/aptos/identity
+Генеруємо унікальний ID для ноди
+docker run --rm --name aptos_tools -d -i aptoslab/tools:devnet
+docker exec -it aptos_tools aptos-operational-tool generate-key --encoding hex --key-type x25519 --key-file $HOME/private-key.txt
+docker exec -it aptos_tools cat $HOME/private-key.txt > $HOME/aptos/identity/private-key.txt
+docker exec -it aptos_tools aptos-operational-tool extract-peer-from-file --encoding hex --key-file $HOME/private-key.txt --output-file $HOME/peer-info.yaml &> /dev/null
+docker exec -it aptos_tools cat $HOME/peer-info.yaml > $HOME/aptos/identity/peer-info.yaml
+PEER_ID=$(sed -n 5p $HOME/aptos/identity/peer-info.yaml | sed 's/    - \(.*\)/\1/')
+PRIVATE_KEY=$(cat $HOME/aptos/identity/private-key.txt)
+docker stop aptos_tools
+Встановлюємо унікальний ID для ноди
+cd $HOME/aptos
+sed -i '/      discovery_method: "onchain"$/a\
+      identity:\
+          type: "from_config"\
+          key: "'$PRIVATE_KEY'"\
+          peer_id: "'$PEER_ID'"' public_full_node.yaml
+Дані з ідентифікатором ноди та приватним ключем будуть збережені у вас на HDD
+
+Переглянути приватний ключ
+
+cat $HOME/aptos/identity/private-key.txt
+Переглянути дані з публічним ідентифікатором
+
+cat $HOME/aptos/identity/id.json
+Запускаємо ноду
+Якщо нода не запущена тоді
+
+docker compose up -d
+Якщо нода вже запущена тоді
+
+docker compose restart
+Перевіряємо статус синхронізації
+curl 127.0.0.1:9101/metrics 2> /dev/null | grep aptos_state_sync_version | grep type
+Має виглядати приблизно так
+
+website url
+За великого бажання можна переглянути логі
+docker logs -f aptos-fullnode-1 --tail 5000
+Оновлення Варіант 3
+Якщо ви встановлювали ноду по гайду з Варіанта 3 і сталося оновлення ноди тоді вам сюди.
+
+Ідемо до папки з конфігами для ноди
+
+cd $HOME/aptos
+Зупиняємо Docker
+
+sudo docker compose down -v
+Перевіряємо, якщо є оновлена ​​версія ноди Docker image
+
+sudo docker pull aptoslab/validator:devnet
+Перевіряємо, якщо є оновлена ​​версія aptos-tools Docker image
+
+sudo docker pull aptoslab/tools:devnet
+Запускаємо aptos-tools для оновлення peer ідентифікатора
+
+sudo docker run --rm --name aptos_tools -d -i aptoslab/tools:devnet
+Оновлюємо ідентифікатор
+
+sudo docker cp $HOME/aptos/identity/private-key.txt aptos_tools:/root
+sudo docker exec -it aptos_tools aptos-operational-tool extract-peer-from-file --encoding hex --key-file $HOME/private-key.txt --output-file $HOME/peer-info.yaml
+sudo docker exec -it aptos_tools cat $HOME/peer-info.yaml > $HOME/aptos/identity/peer-info.yaml
+Зупиняємо aptos tools Docker
+
+sudo docker stop aptos_tools
+Дістаємо peer ідентифікатор
+
+PEER_ID=$(sed -n 2p $HOME/aptos/identity/peer-info.yaml | sed 's/..$//')
+Встановлюємо новий peer інетифікатор
+
+sed -i -e "s/peer_id:.*/peer_id: \"$PEER_ID\"/" $HOME/aptos/public_full_node.yaml
+Видаляємо старий файл genesis.blob
+
+rm $HOME/aptos/genesis.blob
+Завантажуємо новий файл genesis.blob
+
+wget -P $HOME/aptos https://devnet.aptoslabs.com/genesis.blob
+Видаляємо старий файл waypoint.txt
+
+rm $HOME/aptos/waypoint.txt
+Завантажуємо новий файл waypoint.txt
+
+wget -P $HOME/aptos https://devnet.aptoslabs.com/waypoint.txt
+Встановлюємо нове значення з waypoint.txt у файлі конфігурації ноди public_full_node.yaml
+
+sed -i.bak 's/\(from_config: \).*/\1"'$(cat $HOME/aptos/waypoint.txt)'"/g' $HOME/aptos/public_full_node.yaml
+Запускаємо ноду
+
+sudo docker compose up -d
+Видалити Ноду Варіант 3
+cd $HOME/aptos
+docker compose down -v
+rm -rf $HOME/aptos
