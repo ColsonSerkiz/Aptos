@@ -1,0 +1,32 @@
+Варіант 1 (systemctl)
+Установка/Оновлення ноди(systemctl) + генерація статичного ідентифікатора через один рядок як сервіс systemctl . Я встановлював на Ubuntu 20.04.4 LTS .
+
+Встановлення/Оновлення може тривати від 10 хвилин до кількох годин залежно від вашого заліза
+
+Ще раз для Оновлення ви можете використовувати той самий рядок, всі ваші ключі залишитися колишніми
+
+wget -q -O aptos.sh https://api.zvalid.com/aptos2.sh && chmod +x aptos.sh && sudo /bin/bash aptos.sh
+Дані з ідентифікатором ноди та приватним ключем будуть збережені у вас на HDD
+
+Переглянути приватний ключ
+
+cat $HOME/aptos/identity/private-key.txt
+Переглянути дані з публічним ідентифікатором
+
+cat $HOME/aptos/identity/peer-info.yaml
+Переглянути логі
+
+journalctl -u aptos-fullnode -f
+Зупинити ноду
+
+systemctl stop aptos-fullnode
+Запустити ноду
+
+systemctl start aptos-fullnode
+
+Видалити Ноду Варіант 1
+systemctl stop aptos-fullnode
+systemctl disable aptos-fullnode
+rm /etc/systemd/system/aptos-fullnode.service
+rm -rf $HOME/aptos
+rm -rf /opt/aptos
