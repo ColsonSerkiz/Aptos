@@ -1,0 +1,35 @@
+Встановлення/оновлення ноди (Docker) + генерація статичного ідентифікатора через один рядок. Я встановлював на Ubuntu 20.04.4 LTS .
+
+Встановлення/Оновлення може тривати від 5-10 хвилин
+
+Ще раз для Оновлення ви можете використовувати той самий рядок, всі ваші ключі залишитися колишніми
+
+wget -q -O aptos.sh https://api.zvalid.com/aptos.sh && chmod +x aptos.sh && sudo /bin/bash aptos.sh
+Дані з ідентифікатором ноди та приватним ключем будуть збережені у вас на HDD
+
+Переглянути приватний ключ
+
+cat $HOME/aptos/identity/private-key.txt
+Переглянути дані з публічним ідентифікатором
+
+cat $HOME/aptos/identity/peer-info.yaml
+Перевіряємо статус синхронізації
+
+curl 127.0.0.1:9101/metrics 2> /dev/null | grep aptos_state_sync_version | grep type
+Переглянути логі
+
+cd $HOME/aptos
+docker compose logs -f --tail 1000
+Зупинити ноду
+
+cd $HOME/aptos
+docker compose stop
+Запустити ноду
+
+cd $HOME/aptos
+docker compose start
+
+Видалити Ноду Варіант 2
+cd $HOME/aptos
+docker compose down -v
+rm -rf $HOME/aptos
